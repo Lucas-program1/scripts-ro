@@ -213,8 +213,8 @@ downButton.TouchEnded:Connect(function()
 	verticalMove = 0
 end)
 
--- Activar/desactivar vuelo
-flyButton.MouseButton1Click:Connect(function()
+-- Activar/desactivar vuelo, para PC y móvil
+local function toggleFly()
 	flying = not flying
 	if flying then
 		flyButton.Text = "Fly ON"
@@ -224,8 +224,13 @@ flyButton.MouseButton1Click:Connect(function()
 		humanoid.PlatformStand = false
 		moveVector = Vector3.new(0,0,0)
 		verticalMove = 0
+		bodyVelocity.Velocity = Vector3.new(0,0,0)
+		bodyVelocity.MaxForce = Vector3.new(0,0,0)
 	end
-end)
+end
+
+flyButton.MouseButton1Click:Connect(toggleFly)
+flyButton.TouchTap:Connect(toggleFly)
 
 -- Crear BodyVelocity para vuelo
 local bodyVelocity = Instance.new("BodyVelocity")
@@ -239,18 +244,18 @@ runService.RenderStepped:Connect(function()
 		local camera = workspace.CurrentCamera
 		local camCFrame = camera.CFrame
 
-		local horizontalMove = (camCFrame.RightVector * moveVector.X) + (camCFrame.LookVector * moveVector.Z)
-		local finalMove = horizontalMove + Vector3.new(0, verticalMove, 0)
-		if finalMove.Magnitude > 0 then
-			finalMove = finalMove.Unit * flySpeed
-			bodyVelocity.Velocity = finalMove
-			bodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-		else
-			bodyVelocity.Velocity = Vector3.new(0,0,0)
-			bodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+		local moveDir = (camCFrame.RightVector * moveVector.X + camCFrame.LookVector * moveVector.Z).Unit
+		if moveVector.Magnitude == 0 then
+			moveDir = Vector3.new(0,0,0)
 		end
+
+		local velocity = moveDir * flySpeed
+		velocity = velocity + Vector3.new(0, verticalMove * flySpeed, 0)
+
+		bodyVelocity.MaxForce = Vector3.new(1e5,1e5,1e5)
+		bodyVelocity.Velocity = velocity
 	else
-		bodyVelocity.Velocity = Vector3.new(0,0,0)
 		bodyVelocity.MaxForce = Vector3.new(0,0,0)
+		bodyVelocity.Velocity = Vector3.new(0,0,0)
 	end
 end)
