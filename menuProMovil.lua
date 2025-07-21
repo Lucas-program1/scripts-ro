@@ -1,4 +1,3 @@
--- Variables básicas
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -14,32 +13,50 @@ gui.Name = "MenuProMovil"
 local flyActive = false
 local godModeActive = false
 local invisibleActive = false
+local noclipActive = false
 local speedValue = 16
 local jumpPowerValue = 50
 local flySpeed = 50
 
--- Variables vuelo
 local bodyVelocity, bodyGyro
 
--- Movimiento vuelo
 local flyMove = {forward=false, backward=false, left=false, right=false, up=false, down=false, jump=false}
 
 -- UI Base
 local frameMenu = Instance.new("Frame", gui)
-frameMenu.Size = UDim2.new(0, 150, 1, 0)
-frameMenu.Position = UDim2.new(1, -150, 0, 0)
+frameMenu.Size = UDim2.new(0, 150, 0.5, 0)
+frameMenu.Position = UDim2.new(1, -160, 0.25, 0)
 frameMenu.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frameMenu.BorderSizePixel = 0
+frameMenu.Active = true
+frameMenu.Draggable = true
 
-local titleLabel = Instance.new("TextLabel", frameMenu)
-titleLabel.Size = UDim2.new(1, 0, 0, 40)
+local titleBar = Instance.new("Frame", frameMenu)
+titleBar.Size = UDim2.new(1, 0, 0, 30)
+titleBar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+titleBar.BorderSizePixel = 0
+
+local titleLabel = Instance.new("TextLabel", titleBar)
+titleLabel.Size = UDim2.new(1, -40, 1, 0)
+titleLabel.Position = UDim2.new(0, 5, 0, 0)
 titleLabel.BackgroundTransparency = 1
 titleLabel.Text = "Menú Pro Móvil"
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.Font = Enum.Font.SourceSansBold
 titleLabel.TextSize = 18
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- Función para crear botones
+local btnMinimize = Instance.new("TextButton", titleBar)
+btnMinimize.Size = UDim2.new(0, 30, 1, 0)
+btnMinimize.Position = UDim2.new(1, -30, 0, 0)
+btnMinimize.Text = "—"
+btnMinimize.Font = Enum.Font.SourceSansBold
+btnMinimize.TextSize = 22
+btnMinimize.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+btnMinimize.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnMinimize.BorderSizePixel = 0
+
+-- Botones menú
 local function createButton(text, posY)
     local btn = Instance.new("TextButton", frameMenu)
     btn.Size = UDim2.new(1, -10, 0, 40)
@@ -54,14 +71,14 @@ local function createButton(text, posY)
     return btn
 end
 
--- Crear botones menú
-local btnSpeed = createButton("Speed: "..speedValue, 50)
-local btnJump = createButton("Salto: "..jumpPowerValue, 100)
-local btnFly = createButton("Vuelo (OFF)", 150)
-local btnGod = createButton("Godmode (OFF)", 200)
-local btnInvisible = createButton("Invisible (OFF)", 250)
+local btnSpeed = createButton("Speed: "..speedValue, 40)
+local btnJump = createButton("Salto: "..jumpPowerValue, 90)
+local btnFly = createButton("Vuelo (OFF)", 140)
+local btnGod = createButton("Godmode (OFF)", 190)
+local btnInvisible = createButton("Invisible (OFF)", 240)
+local btnNoclip = createButton("NoClip (OFF)", 290)
 
--- Panel de control desplegable
+-- Panel control desplegable
 local panel = Instance.new("Frame", gui)
 panel.Size = UDim2.new(0, 250, 0, 140)
 panel.Position = UDim2.new(1, -400, 0, 50)
@@ -108,16 +125,14 @@ btnClose.BorderSizePixel = 0
 
 local currentPanel = ""
 
--- Función para cerrar panel
 local function closePanel()
     panel.Visible = false
     inputBox.Text = ""
     currentPanel = ""
 end
-
 btnClose.MouseButton1Click:Connect(closePanel)
 
--- Función para actualizar valores y UI
+-- Funciones actualizar
 local function updateSpeed(newSpeed)
     speedValue = tonumber(newSpeed) or speedValue
     hum.WalkSpeed = speedValue
@@ -130,8 +145,19 @@ local function updateJump(newJump)
     btnJump.Text = "Salto: "..jumpPowerValue
 end
 
--- Vuelo funciones
+-- NoClip: activar/desactivar partes para pasar por objetos
+local function toggleNoclip()
+    noclipActive = not noclipActive
+    if noclipActive and flyActive then
+        btnNoclip.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        btnNoclip.Text = "NoClip (ON)"
+    else
+        btnNoclip.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        btnNoclip.Text = "NoClip (OFF)"
+    end
+end
 
+-- Vuelo funciones
 local function startFly()
     if flyActive then return end
     flyActive = true
@@ -168,24 +194,35 @@ local function startFly()
             moveDir = moveDir + camCF.RightVector
         end
         if flyMove.up then
-            moveDir = moveDir + Vector3.new(0, 1, 0)
+            moveDir = moveDir + Vector3.new(0,1,0)
         end
         if flyMove.down then
-            moveDir = moveDir - Vector3.new(0, 1, 0)
+            moveDir = moveDir - Vector3.new(0,1,0)
         end
 
-        if moveDir.Magnitude > 0 then
-            moveDir = moveDir.Unit * flySpeed
+        moveDir = moveDir.Unit * flySpeed
+        if moveDir.Magnitude == 0 then
+            bodyVelocity.Velocity = Vector3.new(0,0,0)
         else
-            moveDir = Vector3.new(0, 0, 0)
+            bodyVelocity.Velocity = moveDir
         end
 
-        bodyVelocity.Velocity = moveDir
         bodyGyro.CFrame = camCF
 
-        if flyMove.jump then
-            hrp.Velocity = Vector3.new(hrp.Velocity.X, jumpPowerValue / 2, hrp.Velocity.Z)
-            flyMove.jump = false
+        -- Aplicar NoClip si está activo y vuelo activo
+        if noclipActive and flyActive then
+            for _, part in pairs(char:GetChildren()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    part.CanCollide = false
+                end
+            end
+        else
+            -- Si no, restaurar colisión
+            for _, part in pairs(char:GetChildren()) do
+                if part:IsA("BasePart") and not part.CanCollide then
+                    part.CanCollide = true
+                end
+            end
         end
     end)
 end
@@ -193,10 +230,11 @@ end
 local function stopFly()
     if not flyActive then return end
     flyActive = false
-    btnFly.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+    btnFly.BackgroundColor3 = Color3.fromRGB(50,50,50)
     btnFly.Text = "Vuelo (OFF)"
+    hum.PlatformStand = false
+    workspace.Gravity = 196.2 -- Valor normal
 
-    RunService:UnbindFromRenderStep("FlyMovement")
     if bodyVelocity then
         bodyVelocity:Destroy()
         bodyVelocity = nil
@@ -205,61 +243,81 @@ local function stopFly()
         bodyGyro:Destroy()
         bodyGyro = nil
     end
-    hum.PlatformStand = false
-    workspace.Gravity = 196.2
+
+    -- Restaurar colisiones al parar vuelo
+    for _, part in pairs(char:GetChildren()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = true
+        end
+    end
+
+    RunService:UnbindFromRenderStep("FlyMovement")
+
+    -- Si NoClip estaba activado, desactivarlo
+    if noclipActive then
+        toggleNoclip()
+    end
 end
 
--- Cambiar Godmode (invencible)
-local function setGodmode(on)
-    godModeActive = on
-    if on then
-        btnGod.BackgroundColor3 = Color3.fromRGB(0,170,0)
+-- Otros toggles
+local function toggleGodMode()
+    godModeActive = not godModeActive
+    if godModeActive then
+        btnGod.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
         btnGod.Text = "Godmode (ON)"
         hum.MaxHealth = math.huge
         hum.Health = hum.MaxHealth
     else
-        btnGod.BackgroundColor3 = Color3.fromRGB(170,0,0)
+        btnGod.BackgroundColor3 = Color3.fromRGB(50,50,50)
         btnGod.Text = "Godmode (OFF)"
         hum.MaxHealth = 100
-        if hum.Health > 100 then hum.Health = 100 end
+        hum.Health = 100
     end
 end
 
--- Cambiar Invisible
-local function setInvisible(on)
-    invisibleActive = on
-    for _, part in pairs(char:GetChildren()) do
-        if part:IsA("BasePart") then
-            part.Transparency = on and 1 or 0
-            part.CanCollide = not on
-        elseif part:IsA("Decal") or part:IsA("Texture") then
-            part.Transparency = on and 1 or 0
+local function toggleInvisible()
+    invisibleActive = not invisibleActive
+    if invisibleActive then
+        btnInvisible.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        btnInvisible.Text = "Invisible (ON)"
+        for _, part in pairs(char:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.Transparency = 1
+                for _, d in pairs(part:GetChildren()) do
+                    if d:IsA("Decal") then
+                        d.Transparency = 1
+                    end
+                end
+            end
+        end
+    else
+        btnInvisible.BackgroundColor3 = Color3.fromRGB(50,50,50)
+        btnInvisible.Text = "Invisible (OFF)"
+        for _, part in pairs(char:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.Transparency = 0
+                for _, d in pairs(part:GetChildren()) do
+                    if d:IsA("Decal") then
+                        d.Transparency = 0
+                    end
+                end
+            end
         end
     end
-    if on then
-        btnInvisible.BackgroundColor3 = Color3.fromRGB(0,170,0)
-        btnInvisible.Text = "Invisible (ON)"
-    else
-        btnInvisible.BackgroundColor3 = Color3.fromRGB(170,0,0)
-        btnInvisible.Text = "Invisible (OFF)"
-    end
 end
 
--- Conectar botones del menú principal
-
+-- Cambiar velocidad y salto desde panel
 btnSpeed.MouseButton1Click:Connect(function()
-    panelTitle.Text = "Cambiar Velocidad"
-    inputBox.PlaceholderText = "Escribe velocidad (ej: 16)"
-    inputBox.Text = tostring(speedValue)
     currentPanel = "speed"
+    panelTitle.Text = "Cambiar velocidad"
+    inputBox.PlaceholderText = "Escribe la velocidad (ej: 16)"
     panel.Visible = true
 end)
 
 btnJump.MouseButton1Click:Connect(function()
-    panelTitle.Text = "Cambiar Salto"
-    inputBox.PlaceholderText = "Escribe salto (ej: 50)"
-    inputBox.Text = tostring(jumpPowerValue)
     currentPanel = "jump"
+    panelTitle.Text = "Cambiar salto"
+    inputBox.PlaceholderText = "Escribe el salto (ej: 50)"
     panel.Visible = true
 end)
 
@@ -271,89 +329,119 @@ btnFly.MouseButton1Click:Connect(function()
     end
 end)
 
-btnGod.MouseButton1Click:Connect(function()
-    setGodmode(not godModeActive)
-end)
-
-btnInvisible.MouseButton1Click:Connect(function()
-    setInvisible(not invisibleActive)
-end)
+btnGod.MouseButton1Click:Connect(toggleGodMode)
+btnInvisible.MouseButton1Click:Connect(toggleInvisible)
+btnNoclip.MouseButton1Click:Connect(toggleNoclip)
 
 btnActivate.MouseButton1Click:Connect(function()
     local val = tonumber(inputBox.Text)
-    if not val or val <= 0 then
+    if currentPanel == "speed" and val and val > 0 and val <= 500 then
+        updateSpeed(val)
+    elseif currentPanel == "jump" and val and val > 0 and val <= 500 then
+        updateJump(val)
+    else
         inputBox.Text = ""
+        inputBox.PlaceholderText = "Número inválido"
         return
     end
-
-    if currentPanel == "speed" then
-        updateSpeed(val)
-    elseif currentPanel == "jump" then
-        updateJump(val)
-    end
-    panel.Visible = false
+    closePanel()
 end)
 
--- Config inicial
-hum.WalkSpeed = speedValue
-hum.JumpPower = jumpPowerValue
+btnMinimize.MouseButton1Click:Connect(function()
+    if frameMenu.Size.Y.Offset > 50 then
+        frameMenu.Size = UDim2.new(0, 150, 0, 30)
+        for _, child in pairs(frameMenu:GetChildren()) do
+            if (child:IsA("TextButton") or child:IsA("TextLabel")) and child ~= titleLabel then
+                child.Visible = false
+            end
+        end
+    else
+        frameMenu.Size = UDim2.new(0, 150, 0.5, 0)
+        for _, child in pairs(frameMenu:GetChildren()) do
+            if child:IsA("TextButton") or child:IsA("TextLabel") then
+                child.Visible = true
+            end
+        end
+    end
+    titleLabel.Visible = true
+end)
 
--- Controles vuelo táctil (puedes personalizarlos)
--- Vamos a hacer botones para volar arriba, abajo, adelante, atrás, izquierda, derecha, y salto
+-- Input teclado
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode == Enum.KeyCode.W then flyMove.forward = true end
+        if input.KeyCode == Enum.KeyCode.S then flyMove.backward = true end
+        if input.KeyCode == Enum.KeyCode.A then flyMove.left = true end
+        if input.KeyCode == Enum.KeyCode.D then flyMove.right = true end
+        if input.KeyCode == Enum.KeyCode.E then flyMove.up = true end
+        if input.KeyCode == Enum.KeyCode.Q then flyMove.down = true end
+        if input.KeyCode == Enum.KeyCode.Space then flyMove.jump = true end
+    end
+end)
 
-local flyControlsFrame = Instance.new("Frame", gui)
-flyControlsFrame.Size = UDim2.new(0, 250, 0, 200)
-flyControlsFrame.Position = UDim2.new(0.5, -125, 1, -210)
-flyControlsFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
-flyControlsFrame.BorderSizePixel = 0
-flyControlsFrame.Visible = false
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode == Enum.KeyCode.W then flyMove.forward = false end
+        if input.KeyCode == Enum.KeyCode.S then flyMove.backward = false end
+        if input.KeyCode == Enum.KeyCode.A then flyMove.left = false end
+        if input.KeyCode == Enum.KeyCode.D then flyMove.right = false end
+        if input.KeyCode == Enum.KeyCode.E then flyMove.up = false end
+        if input.KeyCode == Enum.KeyCode.Q then flyMove.down = false end
+    end
+end)
 
-local function createFlyButton(text, posX, posY)
-    local btn = Instance.new("TextButton", flyControlsFrame)
-    btn.Size = UDim2.new(0, 60, 0, 40)
-    btn.Position = UDim2.new(0, posX, 0, posY)
+-- Crear botones táctiles de vuelo en pantalla para móvil
+local function createFlyButton(name, text, position)
+    local btn = Instance.new("TextButton", gui)
+    btn.Name = name
+    btn.Size = UDim2.new(0, 50, 0, 50)
+    btn.Position = position
     btn.Text = text
     btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 16
-    btn.BackgroundColor3 = Color3.fromRGB(80,80,80)
-    btn.TextColor3 = Color3.fromRGB(255,255,255)
-    btn.BorderSizePixel = 0
+    btn.TextSize = 24
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.AutoButtonColor = true
+    btn.BorderSizePixel = 0
+    btn.Visible = false -- Oculto por defecto, solo móvil
     return btn
 end
 
-local flyBtnForward = createFlyButton("↑", 95, 10)
-local flyBtnBackward = createFlyButton("↓", 95, 100)
-local flyBtnLeft = createFlyButton("←", 30, 55)
-local flyBtnRight = createFlyButton("→", 160, 55)
-local flyBtnUp = createFlyButton("Subir", 30, 150)
-local flyBtnDown = createFlyButton("Bajar", 160, 150)
-local flyBtnJump = createFlyButton("Saltar", 95, 55)
+local btnForward = createFlyButton("FlyForward", "W", UDim2.new(0.5, -25, 0.85, -60))
+local btnBackward = createFlyButton("FlyBackward", "S", UDim2.new(0.5, -25, 0.85, 0))
+local btnLeft = createFlyButton("FlyLeft", "A", UDim2.new(0.5, -90, 0.85, 0))
+local btnRight = createFlyButton("FlyRight", "D", UDim2.new(0.5, 40, 0.85, 0))
+local btnUp = createFlyButton("FlyUp", "E", UDim2.new(0.9, 0, 0.85, 0))
+local btnDown = createFlyButton("FlyDown", "Q", UDim2.new(0.9, 0, 0.85, 60))
 
--- Funciones para actualizar estado vuelo al tocar botones
-
-local function buttonTouchStart(btn, key)
-    btn.TouchStarted:Connect(function()
-        flyMove[key] = true
-    end)
-    btn.TouchEnded:Connect(function()
-        flyMove[key] = false
-    end)
+-- Mostrar botones solo en móvil
+if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
+    btnForward.Visible = true
+    btnBackward.Visible = true
+    btnLeft.Visible = true
+    btnRight.Visible = true
+    btnUp.Visible = true
+    btnDown.Visible = true
 end
 
-buttonTouchStart(flyBtnForward, "forward")
-buttonTouchStart(flyBtnBackward, "backward")
-buttonTouchStart(flyBtnLeft, "left")
-buttonTouchStart(flyBtnRight, "right")
-buttonTouchStart(flyBtnUp, "up")
-buttonTouchStart(flyBtnDown, "down")
+-- Conectar botones táctiles con movimiento de vuelo
+btnForward.MouseButton1Down:Connect(function() flyMove.forward = true end)
+btnForward.MouseButton1Up:Connect(function() flyMove.forward = false end)
 
-flyBtnJump.TouchTap:Connect(function()
-    if flyActive then
-        flyMove.jump = true
-    else
-        hum.Jump = true
-    end
-end)
+btnBackward.MouseButton1Down:Connect(function() flyMove.backward = true end)
+btnBackward.MouseButton1Up:Connect(function() flyMove.backward = false end)
 
-return gui -- si quieres devolver gui para debug
+btnLeft.MouseButton1Down:Connect(function() flyMove.left = true end)
+btnLeft.MouseButton1Up:Connect(function() flyMove.left = false end)
+
+btnRight.MouseButton1Down:Connect(function() flyMove.right = true end)
+btnRight.MouseButton1Up:Connect(function() flyMove.right = false end)
+
+btnUp.MouseButton1Down:Connect(function() flyMove.up = true end)
+btnUp.MouseButton1Up:Connect(function() flyMove.up = false end)
+
+btnDown.MouseButton1Down:Connect(function() flyMove.down = true end)
+btnDown.MouseButton1Up:Connect(function() flyMove.down = false end)
+
+return gui
