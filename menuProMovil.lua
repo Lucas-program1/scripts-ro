@@ -7,10 +7,10 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local root = character:WaitForChild("HumanoidRootPart")
 
--- ControlModule para detectar movimiento en móvil
+-- Detectar controles móviles
 local controlModule = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"):WaitForChild("ControlModule"))
 
--- Crear GUI
+-- GUI
 local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 gui.Name = "FlyGui"
 
@@ -22,7 +22,7 @@ mainFrame.BorderSizePixel = 0
 mainFrame.BackgroundTransparency = 0.1
 mainFrame.Visible = true
 
--- Input: Velocidad
+-- Label Speed
 local speedLabel = Instance.new("TextLabel", mainFrame)
 speedLabel.Text = "Velocidad:"
 speedLabel.Size = UDim2.new(0, 100, 0, 30)
@@ -38,7 +38,7 @@ speedInput.BackgroundColor3 = Color3.fromRGB(50,50,50)
 speedInput.TextColor3 = Color3.new(1,1,1)
 speedInput.ClearTextOnFocus = false
 
--- Input: JumpPower
+-- Label JumpPower
 local jumpLabel = Instance.new("TextLabel", mainFrame)
 jumpLabel.Text = "JumpPower:"
 jumpLabel.Size = UDim2.new(0, 100, 0, 30)
@@ -54,7 +54,7 @@ jumpInput.BackgroundColor3 = Color3.fromRGB(50,50,50)
 jumpInput.TextColor3 = Color3.new(1,1,1)
 jumpInput.ClearTextOnFocus = false
 
--- Botón de vuelo
+-- Botón Fly
 local flyButton = Instance.new("TextButton", mainFrame)
 flyButton.Text = "Fly OFF"
 flyButton.Size = UDim2.new(0, 100, 0, 40)
@@ -70,18 +70,23 @@ minimizeButton.Position = UDim2.new(1, -40, 0, 5)
 minimizeButton.BackgroundColor3 = Color3.fromRGB(100,100,100)
 minimizeButton.TextColor3 = Color3.new(1,1,1)
 
--- Variables de vuelo
+-- Variables
 local flying = false
+local flySpeed = 50
 local bodyVelocity = Instance.new("BodyVelocity", root)
 bodyVelocity.MaxForce = Vector3.new()
 bodyVelocity.Velocity = Vector3.new()
 
--- Función para actualizar valores
+-- Función actualizar velocidad y salto
 local function updateStats()
 	local spd = tonumber(speedInput.Text)
 	local jmp = tonumber(jumpInput.Text)
-	if spd then flySpeed = spd end
-	if jmp then humanoid.JumpPower = jmp end
+	if spd then
+		flySpeed = spd
+	end
+	if jmp then
+		humanoid.JumpPower = jmp
+	end
 end
 
 -- Activar vuelo
@@ -91,11 +96,12 @@ local function toggleFly()
 	flyButton.Text = flying and "Fly ON" or "Fly OFF"
 	humanoid.PlatformStand = flying
 	bodyVelocity.MaxForce = flying and Vector3.new(1e5,1e5,1e5) or Vector3.new()
-	bodyVelocity.Velocity = Vector3.new()
+	bodyVelocity.Velocity = Vector3.zero
 end
 
--- Conectar botones
+-- Botones
 flyButton.MouseButton1Click:Connect(toggleFly)
+
 minimizeButton.MouseButton1Click:Connect(function()
 	mainFrame.Visible = false
 	local openBtn = Instance.new("TextButton", gui)
@@ -110,22 +116,16 @@ minimizeButton.MouseButton1Click:Connect(function()
 	end)
 end)
 
--- Detectar salto doble (opcional) para alternar vuelo
-UserInputService.JumpRequest:Connect(function()
-	toggleFly()
-end)
-
--- Movimiento en vuelo
+-- Movimiento vuelo
 RunService.RenderStepped:Connect(function()
 	if flying then
-		updateStats()
-		local cam = workspace.CurrentCamera.CFrame
 		local moveVec = controlModule:GetMoveVector()
+		local cam = workspace.CurrentCamera.CFrame
 		if moveVec.Magnitude > 0 then
-			local dir = (cam.RightVector * moveVec.X + cam.LookVector * moveVec.Z).Unit
-			bodyVelocity.Velocity = dir * flySpeed
+			local direction = (cam.LookVector * moveVec.Z + cam.RightVector * moveVec.X).Unit
+			bodyVelocity.Velocity = direction * flySpeed
 		else
-			bodyVelocity.Velocity = Vector3.new(0,0,0)
+			bodyVelocity.Velocity = Vector3.zero
 		end
 	end
 end)
