@@ -1,292 +1,131 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
 local player = Players.LocalPlayer
-local char = player.Character or player.CharacterAdded:Wait()
-local humanoid = char:WaitForChild("Humanoid")
-local rootPart = char:WaitForChild("HumanoidRootPart")
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local root = character:WaitForChild("HumanoidRootPart")
+
+-- ControlModule para detectar movimiento en móvil
+local controlModule = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"):WaitForChild("ControlModule"))
+
+-- Crear GUI
 local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-gui.ResetOnSpawn = false
+gui.Name = "FlyGui"
 
--- Variables
-local flying = false
-local flySpeed = 50
-local moveVec = Vector3.zero
-local bv = Instance.new("BodyVelocity")
-bv.MaxForce = Vector3.new(0, 0, 0)
-bv.Velocity = Vector3.zero
-bv.P = 1250
-bv.Parent = rootPart
+local mainFrame = Instance.new("Frame", gui)
+mainFrame.Size = UDim2.new(0, 300, 0, 180)
+mainFrame.Position = UDim2.new(0, 20, 0, 100)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.BackgroundTransparency = 0.1
+mainFrame.Visible = true
 
--- Interfaz principal
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 270, 0, 150)
-frame.Position = UDim2.new(0, 10, 1, -170)
-frame.AnchorPoint = Vector2.new(0, 1)
-frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-frame.BorderSizePixel = 0
-frame.BackgroundTransparency = 0.05
+-- Input: Velocidad
+local speedLabel = Instance.new("TextLabel", mainFrame)
+speedLabel.Text = "Velocidad:"
+speedLabel.Size = UDim2.new(0, 100, 0, 30)
+speedLabel.Position = UDim2.new(0, 10, 0, 10)
+speedLabel.TextColor3 = Color3.new(1,1,1)
+speedLabel.BackgroundTransparency = 1
 
--- Input Speed
-local speedInput = Instance.new("TextBox", frame)
-speedInput.PlaceholderText = "Speed (50)"
-speedInput.Size = UDim2.new(0, 80, 0, 30)
-speedInput.Position = UDim2.new(0, 10, 0, 10)
-speedInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-speedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-speedInput.ClearTextOnFocus = true
+local speedInput = Instance.new("TextBox", mainFrame)
+speedInput.Text = "50"
+speedInput.Size = UDim2.new(0, 50, 0, 30)
+speedInput.Position = UDim2.new(0, 110, 0, 10)
+speedInput.BackgroundColor3 = Color3.fromRGB(50,50,50)
+speedInput.TextColor3 = Color3.new(1,1,1)
+speedInput.ClearTextOnFocus = false
 
--- Input JumpPower
-local jumpInput = Instance.new("TextBox", frame)
-jumpInput.PlaceholderText = "Jump (50)"
-jumpInput.Size = UDim2.new(0, 80, 0, 30)
-jumpInput.Position = UDim2.new(0, 100, 0, 10)
-jumpInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-jumpInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-jumpInput.ClearTextOnFocus = true
+-- Input: JumpPower
+local jumpLabel = Instance.new("TextLabel", mainFrame)
+jumpLabel.Text = "JumpPower:"
+jumpLabel.Size = UDim2.new(0, 100, 0, 30)
+jumpLabel.Position = UDim2.new(0, 10, 0, 50)
+jumpLabel.TextColor3 = Color3.new(1,1,1)
+jumpLabel.BackgroundTransparency = 1
 
--- Botón aplicar
-local applyBtn = Instance.new("TextButton", frame)
-applyBtn.Text = "Aplicar"
-applyBtn.Size = UDim2.new(0, 70, 0, 30)
-applyBtn.Position = UDim2.new(0, 190, 0, 10)
-applyBtn.BackgroundColor3 = Color3.fromRGB(50, 130, 200)
-applyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-
-applyBtn.MouseButton1Click:Connect(function()
-	local s = tonumber(speedInput.Text)
-	local j = tonumber(jumpInput.Text)
-	if s and s > 0 then flySpeed = s end
-	if j and j > 0 then humanoid.JumpPower = j end
-end)
+local jumpInput = Instance.new("TextBox", mainFrame)
+jumpInput.Text = tostring(humanoid.JumpPower)
+jumpInput.Size = UDim2.new(0, 50, 0, 30)
+jumpInput.Position = UDim2.new(0, 110, 0, 50)
+jumpInput.BackgroundColor3 = Color3.fromRGB(50,50,50)
+jumpInput.TextColor3 = Color3.new(1,1,1)
+jumpInput.ClearTextOnFocus = false
 
 -- Botón de vuelo
-local flyBtn = Instance.new("TextButton", frame)
-flyBtn.Text = "Fly OFF"
-flyBtn.Size = UDim2.new(0, 100, 0, 35)
-flyBtn.Position = UDim2.new(0, 10, 0, 50)
-flyBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-flyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+local flyButton = Instance.new("TextButton", mainFrame)
+flyButton.Text = "Fly OFF"
+flyButton.Size = UDim2.new(0, 100, 0, 40)
+flyButton.Position = UDim2.new(0, 10, 0, 100)
+flyButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+flyButton.TextColor3 = Color3.new(1,1,1)
 
-local function toggleFly()
-	flying = not flying
-	if flying then
-		flyBtn.Text = "Fly ON"
-		flyBtn.BackgroundColor3 = Color3.fromRGB(60, 200, 60)
-		humanoid.PlatformStand = true
-		bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-	else
-		flyBtn.Text = "Fly OFF"
-		flyBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-		humanoid.PlatformStand = false
-		bv.MaxForce = Vector3.zero
-		bv.Velocity = Vector3.zero
-		moveVec = Vector3.zero
-	end
-end
+-- Minimizar
+local minimizeButton = Instance.new("TextButton", mainFrame)
+minimizeButton.Text = "-"
+minimizeButton.Size = UDim2.new(0, 30, 0, 30)
+minimizeButton.Position = UDim2.new(1, -40, 0, 5)
+minimizeButton.BackgroundColor3 = Color3.fromRGB(100,100,100)
+minimizeButton.TextColor3 = Color3.new(1,1,1)
 
-flyBtn.MouseButton1Click:Connect(toggleFly)
-flyBtn.TouchTap:Connect(toggleFly)
-
--- Joystick móvil
-local joyFrame = Instance.new("Frame", gui)
-joyFrame.Size = UDim2.new(0, 120, 0, 120)
-joyFrame.Position = UDim2.new(0, 15, 1, -280)
-joyFrame.AnchorPoint = Vector2.new(0, 1)
-joyFrame.BackgroundTransparency = 1
-
-local outer = Instance.new("ImageLabel", joyFrame)
-outer.Size = UDim2.new(1, 0, 1, 0)
-outer.Image = "rbxassetid://3570695787"
-outer.ImageColor3 = Color3.fromRGB(80, 80, 80)
-outer.BackgroundTransparency = 1
-
-local inner = Instance.new("ImageLabel", outer)
-inner.Size = UDim2.new(0, 50, 0, 50)
-inner.Position = UDim2.new(0.5, 0, 0.5, 0)
-inner.AnchorPoint = Vector2.new(0.5, 0.5)
-inner.Image = "rbxassetid://3570695787"
-inner.ImageColor3 = Color3.fromRGB(150, 150, 150)
-inner.BackgroundTransparency = 1
-
-local dragging, startPos
-local radius = 50
-
-outer.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		startPos = input.Position
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-				inner.Position = UDim2.new(0.5, 0, 0.5, 0)
-				moveVec = Vector3.zero
-			end
-		end)
-	end
-end)
-
-outer.InputChanged:Connect(function(input)
-	if dragging and input.UserInputType == Enum.UserInputType.Touch then
-		local delta = input.Position - startPos
-		local dx = math.clamp(delta.X, -radius, radius)
-		local dy = math.clamp(delta.Y, -radius, radius)
-		inner.Position = UDim2.new(0.5, dx, 0.5, dy)
-		moveVec = Vector3.new(dx / radius, 0, -dy / radius)
-	end
-end)
-
--- Movimiento de vuelo
-RunService.RenderStepped:Connect(function()
-	if flying then
-		local cam = workspace.CurrentCamera.CFrame
-		local dir = cam.RightVector * moveVec.X + cam.LookVector * moveVec.Z
-		if dir.Magnitude > 0 then dir = dir.Unit end
-		bv.Velocity = dir * flySpeed
-	end
-end)
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
-local char = player.Character or player.CharacterAdded:Wait()
-local humanoid = char:WaitForChild("Humanoid")
-local rootPart = char:WaitForChild("HumanoidRootPart")
-local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-gui.ResetOnSpawn = false
-
--- Variables
+-- Variables de vuelo
 local flying = false
-local flySpeed = 50
-local moveVec = Vector3.zero
-local bv = Instance.new("BodyVelocity")
-bv.MaxForce = Vector3.new(0, 0, 0)
-bv.Velocity = Vector3.zero
-bv.P = 1250
-bv.Parent = rootPart
+local bodyVelocity = Instance.new("BodyVelocity", root)
+bodyVelocity.MaxForce = Vector3.new()
+bodyVelocity.Velocity = Vector3.new()
 
--- Interfaz principal
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 270, 0, 150)
-frame.Position = UDim2.new(0, 10, 1, -170)
-frame.AnchorPoint = Vector2.new(0, 1)
-frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-frame.BorderSizePixel = 0
-frame.BackgroundTransparency = 0.05
-
--- Input Speed
-local speedInput = Instance.new("TextBox", frame)
-speedInput.PlaceholderText = "Speed (50)"
-speedInput.Size = UDim2.new(0, 80, 0, 30)
-speedInput.Position = UDim2.new(0, 10, 0, 10)
-speedInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-speedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-speedInput.ClearTextOnFocus = true
-
--- Input JumpPower
-local jumpInput = Instance.new("TextBox", frame)
-jumpInput.PlaceholderText = "Jump (50)"
-jumpInput.Size = UDim2.new(0, 80, 0, 30)
-jumpInput.Position = UDim2.new(0, 100, 0, 10)
-jumpInput.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-jumpInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-jumpInput.ClearTextOnFocus = true
-
--- Botón aplicar
-local applyBtn = Instance.new("TextButton", frame)
-applyBtn.Text = "Aplicar"
-applyBtn.Size = UDim2.new(0, 70, 0, 30)
-applyBtn.Position = UDim2.new(0, 190, 0, 10)
-applyBtn.BackgroundColor3 = Color3.fromRGB(50, 130, 200)
-applyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-
-applyBtn.MouseButton1Click:Connect(function()
-	local s = tonumber(speedInput.Text)
-	local j = tonumber(jumpInput.Text)
-	if s and s > 0 then flySpeed = s end
-	if j and j > 0 then humanoid.JumpPower = j end
-end)
-
--- Botón de vuelo
-local flyBtn = Instance.new("TextButton", frame)
-flyBtn.Text = "Fly OFF"
-flyBtn.Size = UDim2.new(0, 100, 0, 35)
-flyBtn.Position = UDim2.new(0, 10, 0, 50)
-flyBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-flyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-
-local function toggleFly()
-	flying = not flying
-	if flying then
-		flyBtn.Text = "Fly ON"
-		flyBtn.BackgroundColor3 = Color3.fromRGB(60, 200, 60)
-		humanoid.PlatformStand = true
-		bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-	else
-		flyBtn.Text = "Fly OFF"
-		flyBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-		humanoid.PlatformStand = false
-		bv.MaxForce = Vector3.zero
-		bv.Velocity = Vector3.zero
-		moveVec = Vector3.zero
-	end
+-- Función para actualizar valores
+local function updateStats()
+	local spd = tonumber(speedInput.Text)
+	local jmp = tonumber(jumpInput.Text)
+	if spd then flySpeed = spd end
+	if jmp then humanoid.JumpPower = jmp end
 end
 
-flyBtn.MouseButton1Click:Connect(toggleFly)
-flyBtn.TouchTap:Connect(toggleFly)
+-- Activar vuelo
+local function toggleFly()
+	updateStats()
+	flying = not flying
+	flyButton.Text = flying and "Fly ON" or "Fly OFF"
+	humanoid.PlatformStand = flying
+	bodyVelocity.MaxForce = flying and Vector3.new(1e5,1e5,1e5) or Vector3.new()
+	bodyVelocity.Velocity = Vector3.new()
+end
 
--- Joystick móvil
-local joyFrame = Instance.new("Frame", gui)
-joyFrame.Size = UDim2.new(0, 120, 0, 120)
-joyFrame.Position = UDim2.new(0, 15, 1, -280)
-joyFrame.AnchorPoint = Vector2.new(0, 1)
-joyFrame.BackgroundTransparency = 1
-
-local outer = Instance.new("ImageLabel", joyFrame)
-outer.Size = UDim2.new(1, 0, 1, 0)
-outer.Image = "rbxassetid://3570695787"
-outer.ImageColor3 = Color3.fromRGB(80, 80, 80)
-outer.BackgroundTransparency = 1
-
-local inner = Instance.new("ImageLabel", outer)
-inner.Size = UDim2.new(0, 50, 0, 50)
-inner.Position = UDim2.new(0.5, 0, 0.5, 0)
-inner.AnchorPoint = Vector2.new(0.5, 0.5)
-inner.Image = "rbxassetid://3570695787"
-inner.ImageColor3 = Color3.fromRGB(150, 150, 150)
-inner.BackgroundTransparency = 1
-
-local dragging, startPos
-local radius = 50
-
-outer.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		startPos = input.Position
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-				inner.Position = UDim2.new(0.5, 0, 0.5, 0)
-				moveVec = Vector3.zero
-			end
-		end)
-	end
+-- Conectar botones
+flyButton.MouseButton1Click:Connect(toggleFly)
+minimizeButton.MouseButton1Click:Connect(function()
+	mainFrame.Visible = false
+	local openBtn = Instance.new("TextButton", gui)
+	openBtn.Text = "🐧"
+	openBtn.Size = UDim2.new(0, 40, 0, 40)
+	openBtn.Position = UDim2.new(0, 20, 0, 20)
+	openBtn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+	openBtn.TextColor3 = Color3.new(1,1,1)
+	openBtn.MouseButton1Click:Connect(function()
+		mainFrame.Visible = true
+		openBtn:Destroy()
+	end)
 end)
 
-outer.InputChanged:Connect(function(input)
-	if dragging and input.UserInputType == Enum.UserInputType.Touch then
-		local delta = input.Position - startPos
-		local dx = math.clamp(delta.X, -radius, radius)
-		local dy = math.clamp(delta.Y, -radius, radius)
-		inner.Position = UDim2.new(0.5, dx, 0.5, dy)
-		moveVec = Vector3.new(dx / radius, 0, -dy / radius)
-	end
+-- Detectar salto doble (opcional) para alternar vuelo
+UserInputService.JumpRequest:Connect(function()
+	toggleFly()
 end)
 
--- Movimiento de vuelo
+-- Movimiento en vuelo
 RunService.RenderStepped:Connect(function()
 	if flying then
+		updateStats()
 		local cam = workspace.CurrentCamera.CFrame
-		local dir = cam.RightVector * moveVec.X + cam.LookVector * moveVec.Z
-		if dir.Magnitude > 0 then dir = dir.Unit end
-		bv.Velocity = dir * flySpeed
+		local moveVec = controlModule:GetMoveVector()
+		if moveVec.Magnitude > 0 then
+			local dir = (cam.RightVector * moveVec.X + cam.LookVector * moveVec.Z).Unit
+			bodyVelocity.Velocity = dir * flySpeed
+		else
+			bodyVelocity.Velocity = Vector3.new(0,0,0)
+		end
 	end
 end)
