@@ -270,59 +270,34 @@ end)
 buttons.gravity = createButton("🌍 Gravedad ON", 350, function()
     config.gravity = not config.gravity
     if config.gravity then
-        workspace.Gravity = 196.2
         buttons.gravity.Text = "🌍 Gravedad ON"
+        workspace.Gravity = 196.2
     else
-        workspace.Gravity = 0
         buttons.gravity.Text = "🌍 Gravedad OFF"
+        workspace.Gravity = 0
     end
     updateInfo()
 end)
 
--- TELEPORT (tocar para teletransportar)
-UIS.TouchTap:Connect(function(touch, gameProcessed)
-    if not gameProcessed and config.menuVisible then return end
-    if not config.fly then return end
-    local pos = workspace.CurrentCamera:ScreenPointToRay(touch.Position.X, touch.Position.Y)
-    local ray = workspace:Raycast(pos.Origin, pos.Direction*500)
-    if ray then
-        hrp.CFrame = CFrame.new(ray.Position + Vector3.new(0, 3, 0))
-    end
-end)
-
--- RESET PERSONAJE
-buttons.reset = createButton("🔄 Reset Personaje", 400, function()
-    player:LoadCharacter()
-end)
-
--- CAMBIAR COLOR
-buttons.color = createButton("🎨 Cambiar color menú", 10, function()
+-- COLOR toggle
+buttons.color = createButton("🎨 Color 1", 400, function()
     config.colorIndex = config.colorIndex + 1
-    if config.colorIndex > #colors then config.colorIndex = 1 end
+    if config.colorIndex > #colors then
+        config.colorIndex = 1
+    end
     frame.BackgroundColor3 = colors[config.colorIndex]
-    updateInfo()
+    buttons.color.Text = "🎨 Color "..config.colorIndex
 end)
 
--- OCULTAR/ MOSTRAR MENÚ
-buttons.toggleMenu = createButton("⬇️ Ocultar menú", 400 - 45, function()
-    config.menuVisible = not config.menuVisible
-    frame.Visible = config.menuVisible
-    buttons.toggleMenu.Text = config.menuVisible and "⬇️ Ocultar menú" or "⬆️ Mostrar menú"
-    updateInfo()
+-- MENU TOGGLE con tecla M
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.M then
+        config.menuVisible = not config.menuVisible
+        frame.Visible = config.menuVisible
+        updateInfo()
+    end
 end)
 
--- Ajustar iniciales
-hum.WalkSpeed = config.speed
-hum.JumpPower = config.jump
-workspace.Gravity = config.gravity and 196.2 or 0
+return screenGui
 
--- Guardar y cargar (ficticio)
-loadConfig()
-
-updateInfo()
-
--- Guardar configuración periódicamente (puedes cambiar el tiempo)
-while true do
-    saveConfig()
-    wait(5)
-end
