@@ -2,171 +2,98 @@ local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 
--- Variables de vuelo
+-- Variables
 local flyEnabled = false
 local flySpeed = 2
-local speeds = 1
-local verticalSpeed = 0
+local infiniteJump = false
+local jumpConnection
 
--- Crear GUI
-local main = Instance.new("ScreenGui")
-local Frame = Instance.new("Frame")
-local up = Instance.new("TextButton")
-local down = Instance.new("TextButton")
-local onof = Instance.new("TextButton")
-local TextLabel = Instance.new("TextLabel")
-local plus = Instance.new("TextButton")
-local speed = Instance.new("TextLabel")
-local mine = Instance.new("TextButton")
+-- Pantalla principal
+local screenGui = Instance.new("ScreenGui", game.CoreGui)
+screenGui.Name = "TouchGui"
 
-main.Name = "main"
-main.Parent = player:WaitForChild("PlayerGui")
-main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+-- Función para crear botones
+function createButton(name, posY, text, callback)
+    local button = Instance.new("TextButton")
+    button.Name = name
+    button.Size = UDim2.new(0, 150, 0, 40)
+    button.Position = UDim2.new(0, 10, 0, posY)
+    button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.TextSize = 14
+    button.Text = text
+    button.Parent = screenGui
+    button.MouseButton1Click:Connect(callback)
+end
 
-Frame.Parent = main
-Frame.BackgroundColor3 = Color3.fromRGB(163, 255, 137)
-Frame.BorderColor3 = Color3.fromRGB(103, 221, 213)
-Frame.Position = UDim2.new(0.1, 0, 0.38, 0)
-Frame.Size = UDim2.new(0, 190, 0, 57)
-
-up.Name = "up"
-up.Parent = Frame
-up.BackgroundColor3 = Color3.fromRGB(79, 255, 152)
-up.Size = UDim2.new(0, 44, 0, 28)
-up.Font = Enum.Font.SourceSans
-up.Text = "UP"
-up.TextColor3 = Color3.new(0, 0, 0)
-up.TextSize = 14
-
-down.Name = "down"
-down.Parent = Frame
-down.BackgroundColor3 = Color3.fromRGB(215, 255, 121)
-down.Position = UDim2.new(0, 0, 0.49, 0)
-down.Size = UDim2.new(0, 44, 0, 28)
-down.Font = Enum.Font.SourceSans
-down.Text = "DOWN"
-down.TextColor3 = Color3.new(0, 0, 0)
-down.TextSize = 14
-
-onof.Name = "onof"
-onof.Parent = Frame
-onof.BackgroundColor3 = Color3.fromRGB(255, 249, 74)
-onof.Position = UDim2.new(0.7, 0, 0.49, 0)
-onof.Size = UDim2.new(0, 56, 0, 28)
-onof.Font = Enum.Font.SourceSans
-onof.Text = "Fly"
-onof.TextColor3 = Color3.new(0, 0, 0)
-onof.TextSize = 14
-
-TextLabel.Parent = Frame
-TextLabel.BackgroundColor3 = Color3.fromRGB(242, 60, 255)
-TextLabel.Position = UDim2.new(0.47, 0, 0, 0)
-TextLabel.Size = UDim2.new(0, 100, 0, 28)
-TextLabel.Font = Enum.Font.SourceSans
-TextLabel.Text = "gui by me_ozoneYT"
-TextLabel.TextColor3 = Color3.new(0, 0, 0)
-TextLabel.TextScaled = true
-TextLabel.TextWrapped = true
-
-plus.Name = "plus"
-plus.Parent = Frame
-plus.BackgroundColor3 = Color3.fromRGB(133, 145, 255)
-plus.Position = UDim2.new(0.23, 0, 0, 0)
-plus.Size = UDim2.new(0, 45, 0, 28)
-plus.Font = Enum.Font.SourceSans
-plus.Text = "+"
-plus.TextColor3 = Color3.new(0, 0, 0)
-plus.TextScaled = true
-plus.TextWrapped = true
-
-speed.Name = "speed"
-speed.Parent = Frame
-speed.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
-speed.Position = UDim2.new(0.47, 0, 0.49, 0)
-speed.Size = UDim2.new(0, 44, 0, 28)
-speed.Font = Enum.Font.SourceSans
-speed.Text = tostring(speeds)
-speed.TextColor3 = Color3.new(0, 0, 0)
-speed.TextScaled = true
-speed.TextWrapped = true
-
-mine.Name = "mine"
-mine.Parent = Frame
-mine.BackgroundColor3 = Color3.fromRGB(123, 255, 247)
-mine.Position = UDim2.new(0.23, 0, 0.49, 0)
-mine.Size = UDim2.new(0, 45, 0, 29)
-mine.Font = Enum.Font.SourceSans
-mine.Text = "-"
-mine.TextColor3 = Color3.new(0, 0, 0)
-mine.TextScaled = true
-mine.TextWrapped = true
-
--- Función para activar/desactivar vuelo con BodyVelocity y BodyGyro
-local function toggleFly()
+-- Función de vuelo
+function toggleFly()
     flyEnabled = not flyEnabled
     local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
     if not torso then return end
 
     if flyEnabled then
-        local bg = Instance.new("BodyGyro", torso)
-        bg.Name = "FlyBG"
-        bg.P = 9000
-        bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
-        bg.cframe = torso.CFrame
-
         local bv = Instance.new("BodyVelocity", torso)
         bv.Name = "FlyBV"
-        bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
-        bv.velocity = Vector3.new(0, 0, 0)
+        bv.MaxForce = Vector3.new(1, 1, 1) * 1e6
+        bv.Velocity = Vector3.zero
 
-        humanoid.PlatformStand = true
-
+        -- Actualiza velocidad constantemente
         spawn(function()
-            while flyEnabled and bv.Parent do
-                local cam = workspace.CurrentCamera
-                local forward = cam.CFrame.LookVector * flySpeed * speeds
-                local vertical = Vector3.new(0, verticalSpeed * speeds, 0)
-                bv.velocity = forward + vertical
-                bg.cframe = cam.CFrame
+            while flyEnabled and bv and bv.Parent do
+                bv.Velocity = workspace.CurrentCamera.CFrame.lookVector * flySpeed
+                humanoid.PlatformStand = true
                 wait()
             end
         end)
     else
         humanoid.PlatformStand = false
-        local bg = torso:FindFirstChild("FlyBG")
-        local bv = torso:FindFirstChild("FlyBV")
-        if bg then bg:Destroy() end
-        if bv then bv:Destroy() end
-        verticalSpeed = 0
+        local existing = torso:FindFirstChild("FlyBV")
+        if existing then
+            existing:Destroy()
+        end
     end
 end
 
--- Botones para controlar vuelo y velocidad
-onof.MouseButton1Click:Connect(function()
+-- Botón: Aumentar velocidad
+createButton("Speed+", 10, "🔺 Speed+", function()
+    humanoid.WalkSpeed = humanoid.WalkSpeed + 5
+end)
+
+-- Botón: Disminuir velocidad
+createButton("Speed-", 60, "🔻 Speed-", function()
+    humanoid.WalkSpeed = humanoid.WalkSpeed - 5
+end)
+
+-- Botón: Aumentar salto
+createButton("Jump+", 110, "🔺 Jump+", function()
+    humanoid.JumpPower = humanoid.JumpPower + 5
+end)
+
+-- Botón: Disminuir salto
+createButton("Jump-", 160, "🔻 Jump-", function()
+    humanoid.JumpPower = humanoid.JumpPower - 5
+end)
+
+-- Botón: Activar vuelo
+createButton("Fly", 210, "✈️ Fly", function()
     toggleFly()
 end)
 
-plus.MouseButton1Click:Connect(function()
-    speeds = speeds + 1
-    speed.Text = tostring(speeds)
-end)
+-- Botón: Saltos infinitos
+createButton("InfJump", 260, "♾️ Saltos Infinitos", function()
+    infiniteJump = not infiniteJump
 
-mine.MouseButton1Click:Connect(function()
-    if speeds > 1 then
-        speeds = speeds - 1
-        speed.Text = tostring(speeds)
+    if infiniteJump then
+        jumpConnection = game:GetService("UserInputService").JumpRequest:Connect(function()
+            if infiniteJump and humanoid then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+    else
+        if jumpConnection then
+            jumpConnection:Disconnect()
+            jumpConnection = nil
+        end
     end
 end)
-
-up.MouseButton1Click:Connect(function()
-    verticalSpeed = 5
-    wait(0.2)
-    verticalSpeed = 0
-end)
-
-down.MouseButton1Click:Connect(function()
-    verticalSpeed = -5
-    wait(0.2)
-    verticalSpeed = 0
-end)
-
