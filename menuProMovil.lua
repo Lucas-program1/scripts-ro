@@ -5,8 +5,10 @@ local humanoid = character:WaitForChild("Humanoid")
 -- Variables de vuelo
 local flyEnabled = false
 local flySpeed = 2
+local speeds = 1
+local verticalSpeed = 0
 
--- Segunda GUI completa (solo la parte visual y botones, sin funcionalidad de vuelo aun)
+-- Crear GUI
 local main = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
 local up = Instance.new("TextButton")
@@ -83,7 +85,7 @@ speed.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
 speed.Position = UDim2.new(0.47, 0, 0.49, 0)
 speed.Size = UDim2.new(0, 44, 0, 28)
 speed.Font = Enum.Font.SourceSans
-speed.Text = "1"
+speed.Text = tostring(speeds)
 speed.TextColor3 = Color3.new(0, 0, 0)
 speed.TextScaled = true
 speed.TextWrapped = true
@@ -99,10 +101,7 @@ mine.TextColor3 = Color3.new(0, 0, 0)
 mine.TextScaled = true
 mine.TextWrapped = true
 
--- Variables para controlar velocidad del vuelo (ejemplo)
-local speeds = 1
-
--- Función para activar/desactivar vuelo con BodyVelocity y BodyGyro (versión simple para R6 y R15)
+-- Función para activar/desactivar vuelo con BodyVelocity y BodyGyro
 local function toggleFly()
     flyEnabled = not flyEnabled
     local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
@@ -124,8 +123,11 @@ local function toggleFly()
 
         spawn(function()
             while flyEnabled and bv.Parent do
-                bv.velocity = workspace.CurrentCamera.CFrame.lookVector * flySpeed * speeds
-                bg.cframe = workspace.CurrentCamera.CFrame
+                local cam = workspace.CurrentCamera
+                local forward = cam.CFrame.LookVector * flySpeed * speeds
+                local vertical = Vector3.new(0, verticalSpeed * speeds, 0)
+                bv.velocity = forward + vertical
+                bg.cframe = cam.CFrame
                 wait()
             end
         end)
@@ -135,15 +137,15 @@ local function toggleFly()
         local bv = torso:FindFirstChild("FlyBV")
         if bg then bg:Destroy() end
         if bv then bv:Destroy() end
+        verticalSpeed = 0
     end
 end
 
--- Conectar el botón 'onof' para activar o desactivar vuelo
+-- Botones para controlar vuelo y velocidad
 onof.MouseButton1Click:Connect(function()
     toggleFly()
 end)
 
--- Conectar los botones '+' y '-' para cambiar la velocidad del vuelo (variable speeds)
 plus.MouseButton1Click:Connect(function()
     speeds = speeds + 1
     speed.Text = tostring(speeds)
@@ -155,3 +157,16 @@ mine.MouseButton1Click:Connect(function()
         speed.Text = tostring(speeds)
     end
 end)
+
+up.MouseButton1Click:Connect(function()
+    verticalSpeed = 5
+    wait(0.2)
+    verticalSpeed = 0
+end)
+
+down.MouseButton1Click:Connect(function()
+    verticalSpeed = -5
+    wait(0.2)
+    verticalSpeed = 0
+end)
+
